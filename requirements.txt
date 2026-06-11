@@ -5,3 +5,4 @@ pyngrok
 chardet
 io
 json
+rich
