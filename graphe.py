@@ -46,11 +46,16 @@ if fichier is not None:
     df = df.dropna(how="all")
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-    for col in df.columns:
-        if df[col].dtype == "object":
-            df[col] = df[col].fillna("Inconnu").str.strip()
-        else:
-            df[col] = df[col].fillna(df[col].mean())
+    numeric_cols = df.select_dtypes(include=['number']).columns
+
+for col in numeric_cols:
+    df[col] = df[col].fillna(df[col].mean())
+categorical_cols = df.select_dtypes(exclude=['number']).columns
+
+for col in categorical_cols:
+    if not df[col].mode().empty:
+        df[col] = df[col].fillna(df[col].mode()[0])
+st.write(df.dtypes)
 
     # Détecter les colonnes dates
     for col in df.columns:
