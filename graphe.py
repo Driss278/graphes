@@ -69,14 +69,14 @@ for col in df.columns:
     # CLASSIFIER LES COLONNES
     # ══════════════════════════════════════
 def get_type(col):
-        if pd.api.types.is_datetime64_any_dtype(df[col]):
-            return "📅 Date"
-        elif pd.api.types.is_numeric_dtype(df[col]):
-            return "🔢 Quantitative"
-        else:
-            return "🔤 Qualitative"
+    if pd.api.types.is_datetime64_any_dtype(df[col]):
+        return "📅 Date"
+    elif pd.api.types.is_numeric_dtype(df[col]):
+        return "🔢 Quantitative"
+    else:
+        return "🔤 Qualitative"
 
-        types = {col: get_type(col) for col in df.columns}
+types = {col: get_type(col) for col in df.columns}
 
     # ══════════════════════════════════════
     # APERÇU DES DONNÉES
