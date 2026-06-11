@@ -76,7 +76,7 @@ def get_type(col):
         else:
             return "🔤 Qualitative"
 
-    types = {col: get_type(col) for col in df.columns}
+        types = {col: get_type(col) for col in df.columns}
 
     # ══════════════════════════════════════
     # APERÇU DES DONNÉES
