@@ -68,7 +68,7 @@ for col in df.columns:
     # ══════════════════════════════════════
     # CLASSIFIER LES COLONNES
     # ══════════════════════════════════════
-    def get_type(col):
+def get_type(col):
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             return "📅 Date"
         elif pd.api.types.is_numeric_dtype(df[col]):
@@ -81,7 +81,7 @@ for col in df.columns:
     # ══════════════════════════════════════
     # APERÇU DES DONNÉES
     # ══════════════════════════════════════
-    with st.expander("📋 Aperçu des données nettoyées"):
+with st.expander("📋 Aperçu des données nettoyées"):
         st.dataframe(df)
         st.write("**Types détectés :**")
         type_df = pd.DataFrame({"Colonne": types.keys(), "Type": types.values()})
@@ -96,7 +96,7 @@ for col in df.columns:
 
     col1, col2 = st.columns(2)
 
-    with col1:
+with col1:
         x_col = st.selectbox(
             "Variable X :",
             options=df.columns,
@@ -114,7 +114,7 @@ for col in df.columns:
     # ══════════════════════════════════════
     # DÉTECTION DU MEILLEUR GRAPHIQUE
     # ══════════════════════════════════════
-    def meilleur_graphe(x, y):
+def meilleur_graphe(x, y):
         tx = types[x]
         if y == "Aucune":
             if tx == "🔢 Quantitative":
@@ -135,56 +135,56 @@ for col in df.columns:
                 return "Boxplot"
             elif tx == "🔤 Qualitative" and ty == "🔤 Qualitative":
                 return "Bar chart"
-        return "Bar chart"
+    return "Bar chart"
 
-    graphe_auto = meilleur_graphe(x_col, y_col)
+graphe_auto = meilleur_graphe(x_col, y_col)
 
     # Choix manuel ou automatique
-    graphe_options = ["Histogramme", "Bar chart", "Scatter plot", "Boxplot", "Line chart", "Pie chart"]
+graphe_options = ["Histogramme", "Bar chart", "Scatter plot", "Boxplot", "Line chart", "Pie chart"]
 
-    col3, col4 = st.columns(2)
-    with col3:
-        st.info(f"💡 Graphique recommandé : **{graphe_auto}**")
-    with col4:
-        graphe_choix = st.selectbox("Ou choisir manuellement :", graphe_options, index=graphe_options.index(graphe_auto))
+col3, col4 = st.columns(2)
+with col3:
+    st.info(f"💡 Graphique recommandé : **{graphe_auto}**")
+with col4:
+    graphe_choix = st.selectbox("Ou choisir manuellement :", graphe_options, index=graphe_options.index(graphe_auto))
 
-    st.markdown("---")
+st.markdown("---")
 
     # ══════════════════════════════════════
     # FILTRE SIMPLE
     # ══════════════════════════════════════
-    st.subheader("🔍 Filtre")
+st.subheader("🔍 Filtre")
 
-    col_filtre = st.selectbox("Filtrer par :", df.columns, format_func=lambda c: f"{c}  ({types[c]})")
+col_filtre = st.selectbox("Filtrer par :", df.columns, format_func=lambda c: f"{c}  ({types[c]})")
 
-    if types[col_filtre] == "🔤 Qualitative":
+if types[col_filtre] == "🔤 Qualitative":
         valeurs = df[col_filtre].unique()
         choix = st.multiselect("Valeurs :", valeurs, default=list(valeurs))
         df_filtre = df[df[col_filtre].isin(choix)]
 
-    elif types[col_filtre] == "🔢 Quantitative":
+elif types[col_filtre] == "🔢 Quantitative":
         min_v = float(df[col_filtre].min())
         max_v = float(df[col_filtre].max())
         plage = st.slider("Plage :", min_v, max_v, (min_v, max_v))
         df_filtre = df[(df[col_filtre] >= plage[0]) & (df[col_filtre] <= plage[1])]
 
-    else:
+else:
         df_filtre = df.copy()
 
-    st.write(f"**{df_filtre.shape[0]} lignes** après filtrage")
+st.write(f"**{df_filtre.shape[0]} lignes** après filtrage")
 
-    st.markdown("---")
+st.markdown("---")
 
     # ══════════════════════════════════════
     # GÉNÉRATION DU GRAPHIQUE
     # ══════════════════════════════════════
-    st.subheader("📈 Visualisation")
+st.subheader("📈 Visualisation")
 
-    titre = f"{graphe_choix} — {x_col}" + (f" vs {y_col}" if y_col != "Aucune" else "")
+titre = f"{graphe_choix} — {x_col}" + (f" vs {y_col}" if y_col != "Aucune" else "")
 
-    fig = None
+fig = None
 
-    try:
+try:
         if graphe_choix == "Histogramme":
             fig = px.histogram(df_filtre, x=x_col, title=titre, color_discrete_sequence=["#636EFA"])
 
@@ -223,12 +223,12 @@ for col in df.columns:
             fig.update_layout(title_font_size=20, height=500)
             st.plotly_chart(fig, use_container_width=True)
 
-    except Exception as e:
+except Exception as e:
         st.error(f"Erreur lors de la génération du graphique : {e}")
 
     # ══════════════════════════════════════
     # TÉLÉCHARGEMENT
     # ══════════════════════════════════════
-    st.markdown("---")
-    csv = df_filtre.to_csv(index=False).encode("utf-8")
-    st.download_button("⬇️ Télécharger les données filtrées", data=csv, file_name="données_filtrées.csv", mime="text/csv")
+st.markdown("---")
+csv = df_filtre.to_csv(index=False).encode("utf-8")
+st.download_button("⬇️ Télécharger les données filtrées", data=csv, file_name="données_filtrées.csv", mime="text/csv")
