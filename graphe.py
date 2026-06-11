@@ -58,7 +58,7 @@ for col in categorical_cols:
 st.write(df.dtypes)
 
     # Détecter les colonnes dates
-    for col in df.columns:
+for col in df.columns:
         if df[col].dtype == "object":
             try:
                 df[col] = pd.to_datetime(df[col])
