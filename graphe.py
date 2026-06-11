@@ -3,232 +3,384 @@ import pandas as pd
 import plotly.express as px
 import chardet
 import io
+
 st.set_page_config(page_title="📊 Dashboard Auto", layout="wide")
 st.title("📊 Dashboard Automatique")
 
-# ══════════════════════════════════════
-# UPLOAD & CHARGEMENT
-# ══════════════════════════════════════
-fichier = st.file_uploader("📁 Uploader un fichier CSV ou Excel", type=["csv", "xlsx","json"])
+fichier = st.file_uploader(
+    "📁 Uploader un fichier CSV ou Excel",
+    type=["csv", "xlsx"]
+)
 
 if fichier is not None:
 
+    # ==========================
+    # CHARGEMENT DU FICHIER
+    # ==========================
+
     if fichier.name.endswith(".csv"):
-      raw = fichier.read()
 
-    # 1 — Encodage
-      result = chardet.detect(raw)
-      encoding = result["encoding"] or "latin-1"
+        raw = fichier.read()
 
-    # 2 — Séparateur
-      sample = raw[:2000].decode(encoding, errors="replace")
-      if sample.count(";") > sample.count(","):
-        sep = ";"
-      elif sample.count("\t") > sample.count(","):
-        sep = "\t"
-      else:
-        sep = ","
+        result = chardet.detect(raw)
+        encoding = result["encoding"] or "latin-1"
 
-    # 3 — Chargement
-      try:
-        df = pd.read_csv(io.BytesIO(raw), encoding=encoding, sep=sep)
-        st.success(f"✅ Fichier lu — encodage: {encoding} | séparateur: '{sep}'")
-      except Exception as e:
-        st.error(f"❌ Erreur : {e}")
-        st.stop()
-    else :
+        sample = raw[:2000].decode(encoding, errors="replace")
+
+        if sample.count(";") > sample.count(","):
+            sep = ";"
+        elif sample.count("\t") > sample.count(","):
+            sep = "\t"
+        else:
+            sep = ","
+
+        try:
+            df = pd.read_csv(
+                io.BytesIO(raw),
+                encoding=encoding,
+                sep=sep
+            )
+
+            st.success(
+                f"✅ Encodage : {encoding} | Séparateur : '{sep}'"
+            )
+
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+            st.stop()
+
+    else:
         df = pd.read_excel(fichier)
 
-    # ══════════════════════════════════════
-    # NETTOYAGE AUTOMATIQUE
-    # ══════════════════════════════════════
+    # ==========================
+    # NETTOYAGE
+    # ==========================
+
     df = df.drop_duplicates()
     df = df.dropna(how="all")
-    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-    numeric_cols = df.select_dtypes(include=['number']).columns
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+    )
 
-for col in numeric_cols:
-    df[col] = df[col].fillna(df[col].mean())
-categorical_cols = df.select_dtypes(exclude=['number']).columns
+    # numériques
+    numeric_cols = df.select_dtypes(include=["number"]).columns
 
-for col in categorical_cols:
-    if not df[col].mode().empty:
-        df[col] = df[col].fillna(df[col].mode()[0])
-st.write(df.dtypes)
+    for col in numeric_cols:
+        df[col] = df[col].fillna(df[col].mean())
 
-    # Détecter les colonnes dates
-for col in df.columns:
+    # qualitatives
+    categorical_cols = df.select_dtypes(exclude=["number"]).columns
+
+    for col in categorical_cols:
+        if not df[col].mode().empty:
+            df[col] = df[col].fillna(df[col].mode()[0])
+
+    # dates
+    for col in df.columns:
         if df[col].dtype == "object":
             try:
                 df[col] = pd.to_datetime(df[col])
             except:
                 pass
 
-    # ══════════════════════════════════════
-    # CLASSIFIER LES COLONNES
-    # ══════════════════════════════════════
-def get_type(col):
-    if pd.api.types.is_datetime64_any_dtype(df[col]):
-        return "📅 Date"
-    elif pd.api.types.is_numeric_dtype(df[col]):
-        return "🔢 Quantitative"
-    else:
-        return "🔤 Qualitative"
+    # ==========================
+    # TYPES DES VARIABLES
+    # ==========================
 
-types = {col: get_type(col) for col in df.columns}
+    def get_type(col):
 
-    # ══════════════════════════════════════
-    # APERÇU DES DONNÉES
-    # ══════════════════════════════════════
-with st.expander("📋 Aperçu des données nettoyées"):
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            return "📅 Date"
+
+        elif pd.api.types.is_numeric_dtype(df[col]):
+            return "🔢 Quantitative"
+
+        else:
+            return "🔤 Qualitative"
+
+    types = {col: get_type(col) for col in df.columns}
+
+    # ==========================
+    # APERÇU
+    # ==========================
+
+    with st.expander("📋 Aperçu des données"):
+
         st.dataframe(df)
-        st.write("**Types détectés :**")
-        type_df = pd.DataFrame({"Colonne": types.keys(), "Type": types.values()})
+
+        type_df = pd.DataFrame({
+            "Colonne": list(types.keys()),
+            "Type": list(types.values())
+        })
+
         st.dataframe(type_df)
 
     st.markdown("---")
 
-    # ══════════════════════════════════════
-    # SÉLECTION X ET Y
-    # ══════════════════════════════════════
-    st.subheader("🎯 Sélection des variables")
+    # ==========================
+    # VARIABLES
+    # ==========================
+
+    st.subheader("🎯 Sélection")
 
     col1, col2 = st.columns(2)
 
-with col1:
+    with col1:
+
         x_col = st.selectbox(
-            "Variable X :",
-            options=df.columns,
-            format_func=lambda c: f"{c}  ({types[c]})"
+            "Variable X",
+            df.columns,
+            format_func=lambda c: f"{c} ({types[c]})"
         )
 
     with col2:
-        y_options = ["Aucune"] + [c for c in df.columns if c != x_col]
+
+        y_options = ["Aucune"] + [
+            c for c in df.columns if c != x_col
+        ]
+
         y_col = st.selectbox(
-            "Variable Y (optionnelle) :",
-            options=y_options,
-            format_func=lambda c: f"{c}  ({types[c]})" if c != "Aucune" else "Aucune"
+            "Variable Y",
+            y_options
         )
 
-    # ══════════════════════════════════════
-    # DÉTECTION DU MEILLEUR GRAPHIQUE
-    # ══════════════════════════════════════
-def meilleur_graphe(x, y):
+    # ==========================
+    # CHOIX AUTO DU GRAPHE
+    # ==========================
+
+    def meilleur_graphe(x, y):
+
         tx = types[x]
+
         if y == "Aucune":
+
             if tx == "🔢 Quantitative":
                 return "Histogramme"
+
             elif tx == "🔤 Qualitative":
                 return "Bar chart"
-            elif tx == "📅 Date":
-                return "Line chart"
-        else:
-            ty = types[y]
-            if tx == "📅 Date" or ty == "📅 Date":
-                return "Line chart"
-            elif tx == "🔢 Quantitative" and ty == "🔢 Quantitative":
-                return "Scatter plot"
-            elif tx == "🔤 Qualitative" and ty == "🔢 Quantitative":
-                return "Boxplot"
-            elif tx == "🔢 Quantitative" and ty == "🔤 Qualitative":
-                return "Boxplot"
-            elif tx == "🔤 Qualitative" and ty == "🔤 Qualitative":
-                return "Bar chart"
-    return "Bar chart"
 
-graphe_auto = meilleur_graphe(x_col, y_col)
-
-    # Choix manuel ou automatique
-graphe_options = ["Histogramme", "Bar chart", "Scatter plot", "Boxplot", "Line chart", "Pie chart"]
-
-col3, col4 = st.columns(2)
-with col3:
-    st.info(f"💡 Graphique recommandé : **{graphe_auto}**")
-with col4:
-    graphe_choix = st.selectbox("Ou choisir manuellement :", graphe_options, index=graphe_options.index(graphe_auto))
-
-st.markdown("---")
-
-    # ══════════════════════════════════════
-    # FILTRE SIMPLE
-    # ══════════════════════════════════════
-st.subheader("🔍 Filtre")
-
-col_filtre = st.selectbox("Filtrer par :", df.columns, format_func=lambda c: f"{c}  ({types[c]})")
-
-if types[col_filtre] == "🔤 Qualitative":
-        valeurs = df[col_filtre].unique()
-        choix = st.multiselect("Valeurs :", valeurs, default=list(valeurs))
-        df_filtre = df[df[col_filtre].isin(choix)]
-
-elif types[col_filtre] == "🔢 Quantitative":
-        min_v = float(df[col_filtre].min())
-        max_v = float(df[col_filtre].max())
-        plage = st.slider("Plage :", min_v, max_v, (min_v, max_v))
-        df_filtre = df[(df[col_filtre] >= plage[0]) & (df[col_filtre] <= plage[1])]
-
-else:
-        df_filtre = df.copy()
-
-st.write(f"**{df_filtre.shape[0]} lignes** après filtrage")
-
-st.markdown("---")
-
-    # ══════════════════════════════════════
-    # GÉNÉRATION DU GRAPHIQUE
-    # ══════════════════════════════════════
-st.subheader("📈 Visualisation")
-
-titre = f"{graphe_choix} — {x_col}" + (f" vs {y_col}" if y_col != "Aucune" else "")
-
-fig = None
-
-try:
-        if graphe_choix == "Histogramme":
-            fig = px.histogram(df_filtre, x=x_col, title=titre, color_discrete_sequence=["#636EFA"])
-
-        elif graphe_choix == "Bar chart":
-            if y_col != "Aucune":
-                fig = px.bar(df_filtre, x=x_col, y=y_col, title=titre)
             else:
-                counts = df_filtre[x_col].value_counts().reset_index()
+                return "Line chart"
+
+        ty = types[y]
+
+        if tx == "📅 Date" or ty == "📅 Date":
+            return "Line chart"
+
+        elif (
+            tx == "🔢 Quantitative"
+            and ty == "🔢 Quantitative"
+        ):
+            return "Scatter plot"
+
+        elif (
+            tx == "🔤 Qualitative"
+            and ty == "🔢 Quantitative"
+        ):
+            return "Boxplot"
+
+        elif (
+            tx == "🔢 Quantitative"
+            and ty == "🔤 Qualitative"
+        ):
+            return "Boxplot"
+
+        return "Bar chart"
+
+    graphe_auto = meilleur_graphe(
+        x_col,
+        y_col
+    )
+
+    options = [
+        "Histogramme",
+        "Bar chart",
+        "Scatter plot",
+        "Boxplot",
+        "Line chart",
+        "Pie chart"
+    ]
+
+    st.info(
+        f"💡 Graphique recommandé : {graphe_auto}"
+    )
+
+    graphe = st.selectbox(
+        "Type de graphique",
+        options,
+        index=options.index(graphe_auto)
+    )
+
+    st.markdown("---")
+
+    # ==========================
+    # FILTRE
+    # ==========================
+
+    st.subheader("🔍 Filtre")
+
+    filtre_col = st.selectbox(
+        "Filtrer par",
+        df.columns
+    )
+
+    df_filtre = df.copy()
+
+    if types[filtre_col] == "🔤 Qualitative":
+
+        valeurs = df[filtre_col].dropna().unique()
+
+        choix = st.multiselect(
+            "Valeurs",
+            valeurs,
+            default=valeurs
+        )
+
+        df_filtre = df[
+            df[filtre_col].isin(choix)
+        ]
+
+    elif types[filtre_col] == "🔢 Quantitative":
+
+        min_v = float(df[filtre_col].min())
+        max_v = float(df[filtre_col].max())
+
+        plage = st.slider(
+            "Plage",
+            min_v,
+            max_v,
+            (min_v, max_v)
+        )
+
+        df_filtre = df[
+            (df[filtre_col] >= plage[0])
+            &
+            (df[filtre_col] <= plage[1])
+        ]
+
+    # ==========================
+    # GRAPHIQUE
+    # ==========================
+
+    st.subheader("📈 Visualisation")
+
+    titre = f"{graphe} - {x_col}"
+
+    fig = None
+
+    try:
+
+        if graphe == "Histogramme":
+
+            fig = px.histogram(
+                df_filtre,
+                x=x_col,
+                title=titre
+            )
+
+        elif graphe == "Bar chart":
+
+            if y_col != "Aucune":
+
+                fig = px.bar(
+                    df_filtre,
+                    x=x_col,
+                    y=y_col,
+                    title=titre
+                )
+
+            else:
+
+                counts = (
+                    df_filtre[x_col]
+                    .value_counts()
+                    .reset_index()
+                )
+
                 counts.columns = [x_col, "count"]
-                fig = px.bar(counts, x=x_col, y="count", title=titre)
 
-        elif graphe_choix == "Scatter plot":
+                fig = px.bar(
+                    counts,
+                    x=x_col,
+                    y="count",
+                    title=titre
+                )
+
+        elif graphe == "Scatter plot":
+
             if y_col != "Aucune":
-                fig = px.scatter(df_filtre, x=x_col, y=y_col, title=titre, trendline="ols")
-            else:
-                st.warning("Scatter plot nécessite une variable Y.")
 
-        elif graphe_choix == "Boxplot":
+                fig = px.scatter(
+                    df_filtre,
+                    x=x_col,
+                    y=y_col,
+                    title=titre
+                )
+
+        elif graphe == "Boxplot":
+
             if y_col != "Aucune":
-                fig = px.box(df_filtre, x=x_col, y=y_col, title=titre)
-            else:
-                fig = px.box(df_filtre, y=x_col, title=titre)
 
-        elif graphe_choix == "Line chart":
+                fig = px.box(
+                    df_filtre,
+                    x=x_col,
+                    y=y_col,
+                    title=titre
+                )
+
+        elif graphe == "Line chart":
+
             if y_col != "Aucune":
-                fig = px.line(df_filtre.sort_values(x_col), x=x_col, y=y_col, title=titre)
-            else:
-                st.warning("Line chart nécessite une variable Y.")
 
-        elif graphe_choix == "Pie chart":
-            counts = df_filtre[x_col].value_counts().reset_index()
+                fig = px.line(
+                    df_filtre,
+                    x=x_col,
+                    y=y_col,
+                    title=titre
+                )
+
+        elif graphe == "Pie chart":
+
+            counts = (
+                df_filtre[x_col]
+                .value_counts()
+                .reset_index()
+            )
+
             counts.columns = [x_col, "count"]
-            fig = px.pie(counts, names=x_col, values="count", title=titre)
 
-        if fig:
-            fig.update_layout(title_font_size=20, height=500)
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.pie(
+                counts,
+                names=x_col,
+                values="count",
+                title=titre
+            )
 
-except Exception as e:
-        st.error(f"Erreur lors de la génération du graphique : {e}")
+        if fig is not None:
+            st.plotly_chart(
+                fig,
+                use_container_width=True
+            )
 
-    # ══════════════════════════════════════
-    # TÉLÉCHARGEMENT
-    # ══════════════════════════════════════
-st.markdown("---")
-csv = df_filtre.to_csv(index=False).encode("utf-8")
-st.download_button("⬇️ Télécharger les données filtrées", data=csv, file_name="données_filtrées.csv", mime="text/csv")
+    except Exception as e:
+        st.error(str(e))
+
+    # ==========================
+    # EXPORT CSV
+    # ==========================
+
+    csv = df_filtre.to_csv(
+        index=False
+    ).encode("utf-8")
+
+    st.download_button(
+        "⬇️ Télécharger CSV",
+        data=csv,
+        file_name="donnees_filtrees.csv",
+        mime="text/csv"
+    )
