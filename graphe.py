@@ -4,6 +4,7 @@ import plotly.express as px
 import json
 import chardet
 import io
+pip install -r requirements.txt
 st.set_page_config(page_title="📊 Dashboard Auto", layout="wide")
 st.title("📊 Dashboard Automatique")
 
