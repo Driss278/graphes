@@ -3,6 +3,3 @@ pandas
 plotly.express
 pyngrok
 chardet
-io
-json
-rich
